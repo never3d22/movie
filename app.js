@@ -5,6 +5,8 @@ const DEFAULT_SETTINGS = {
   playerDomain: "https://video.apbugall.org/",
 };
 
+const PAGE_SIZE_OPTIONS = [12, 18, 24];
+
 const settings = loadSettings();
 
 const elements = {
@@ -12,6 +14,10 @@ const elements = {
   resultsEmpty: document.getElementById("results-empty"),
   resultsLoading: document.getElementById("results-loading"),
   resultsError: document.getElementById("results-error"),
+  paginationBar: document.getElementById("results-pagination"),
+  paginationControls: document.getElementById("pagination-controls"),
+  paginationSummary: document.getElementById("pagination-summary"),
+  pageSizeSelect: document.getElementById("page-size-select"),
   detailsContent: document.getElementById("details-content"),
   refreshButton: document.getElementById("refresh-button"),
   searchForm: document.getElementById("search-form"),
@@ -23,6 +29,7 @@ const elements = {
   settingsReset: document.getElementById("settings-reset"),
   settingsToken: document.getElementById("settings-token"),
   settingsPlayer: document.getElementById("settings-player"),
+  settingsUseOrigin: document.getElementById("settings-use-origin"),
   liveRegion: document.getElementById("live-region"),
 };
 
@@ -31,6 +38,10 @@ const state = {
   items: [],
   selectedId: null,
   selectedDetails: null,
+  pagination: {
+    page: 1,
+    perPage: PAGE_SIZE_OPTIONS[1],
+  },
 };
 
 function buildUrl(params) {
@@ -71,19 +82,44 @@ function normaliseMaterials(data) {
   return [];
 }
 
-function renderResults(materials) {
+function setResults(materials) {
+  state.items = Array.isArray(materials) ? materials : [];
+  state.pagination.page = 1;
+  renderResults();
+}
+
+function renderResults() {
+  const materials = Array.isArray(state.items) ? state.items : [];
+  const perPageCandidate = Number.parseInt(state.pagination.perPage, 10);
+  const perPage = Number.isFinite(perPageCandidate) && perPageCandidate > 0 ? perPageCandidate : PAGE_SIZE_OPTIONS[1];
+  state.pagination.perPage = perPage;
+
+  const totalItems = materials.length;
+  const totalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / perPage);
+
+  if (state.pagination.page > totalPages) {
+    state.pagination.page = totalPages;
+  }
+  if (state.pagination.page < 1) {
+    state.pagination.page = 1;
+  }
+
   elements.resultsList.innerHTML = "";
   elements.resultsError.hidden = true;
   elements.resultsError.textContent = "";
-  elements.resultsEmpty.hidden = materials.length !== 0;
+  elements.resultsEmpty.hidden = totalItems !== 0;
 
-  if (materials.length === 0) {
+  if (totalItems === 0) {
+    renderPagination(totalItems, 0, 0);
     return;
   }
 
+  const startIndex = (state.pagination.page - 1) * perPage;
+  const visibleItems = materials.slice(startIndex, startIndex + perPage);
+
   const fragment = document.createDocumentFragment();
 
-  materials.forEach((item) => {
+  visibleItems.forEach((item) => {
     const card = elements.cardTemplate.content.firstElementChild.cloneNode(true);
     const button = card.querySelector(".card-button");
     const poster = card.querySelector(".poster");
@@ -110,6 +146,113 @@ function renderResults(materials) {
   });
 
   elements.resultsList.appendChild(fragment);
+
+  const startDisplay = startIndex + 1;
+  const endDisplay = startIndex + visibleItems.length;
+  renderPagination(totalItems, startDisplay, endDisplay);
+}
+
+function renderPagination(totalItems, startDisplay, endDisplay) {
+  if (!elements.paginationBar || !elements.paginationControls) {
+    return;
+  }
+
+  const hasItems = totalItems > 0;
+  const perPage = state.pagination.perPage || PAGE_SIZE_OPTIONS[1];
+  const totalPages = hasItems ? Math.ceil(totalItems / perPage) : 1;
+  const currentPage = state.pagination.page;
+
+  elements.paginationBar.hidden = !hasItems;
+
+  if (elements.paginationSummary) {
+    elements.paginationSummary.textContent = hasItems
+      ? `Показано ${startDisplay}–${endDisplay} из ${totalItems}`
+      : "";
+  }
+
+  if (!hasItems || totalPages <= 1) {
+    elements.paginationControls.innerHTML = "";
+    return;
+  }
+
+  const controls = elements.paginationControls;
+  controls.innerHTML = "";
+
+  const createButton = ({ label, page, disabled = false, ariaLabel, current = false }) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "page-button";
+    button.textContent = label;
+    if (ariaLabel) {
+      button.setAttribute("aria-label", ariaLabel);
+    }
+    if (current) {
+      button.setAttribute("aria-current", "page");
+      button.disabled = true;
+    } else {
+      button.dataset.page = String(page);
+      button.disabled = Boolean(disabled);
+    }
+    return button;
+  };
+
+  const createEllipsis = () => {
+    const span = document.createElement("span");
+    span.className = "pagination-ellipsis";
+    span.textContent = "…";
+    return span;
+  };
+
+  controls.append(
+    createButton({
+      label: "‹",
+      page: Math.max(1, currentPage - 1),
+      disabled: currentPage === 1,
+      ariaLabel: "Предыдущая страница",
+    })
+  );
+
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = startPage + maxVisiblePages - 1;
+
+  if (endPage > totalPages) {
+    endPage = totalPages;
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  if (startPage > 1) {
+    controls.append(createButton({ label: "1", page: 1 }));
+    if (startPage > 2) {
+      controls.append(createEllipsis());
+    }
+  }
+
+  for (let page = startPage; page <= endPage; page += 1) {
+    controls.append(
+      createButton({
+        label: String(page),
+        page,
+        current: page === currentPage,
+      })
+    );
+  }
+
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      controls.append(createEllipsis());
+    }
+    controls.append(createButton({ label: String(totalPages), page: totalPages }));
+  }
+
+  controls.append(
+    createButton({
+      label: "›",
+      page: Math.min(totalPages, currentPage + 1),
+      disabled: currentPage === totalPages,
+      ariaLabel: "Следующая страница",
+    })
+  );
 }
 
 function buildRatingLabel(item) {
@@ -131,7 +274,12 @@ function safePosterUrl(url) {
 
 function setResultsLoading(isLoading) {
   elements.resultsLoading.hidden = !isLoading;
-  elements.resultsList.ariaBusy = String(isLoading);
+  if (elements.resultsList) {
+    elements.resultsList.setAttribute("aria-busy", String(isLoading));
+  }
+  if (isLoading && elements.paginationBar) {
+    elements.paginationBar.hidden = true;
+  }
 }
 
 function setDetailsLoading() {
@@ -497,14 +645,16 @@ async function loadShowcase(category = "movie") {
   try {
     const data = await fetchFromApi({ list: category });
     const materials = normaliseMaterials(data);
-    state.items = materials;
-    renderResults(materials);
+    setResults(materials);
   } catch (error) {
     console.error(error);
     elements.resultsError.hidden = false;
     elements.resultsError.textContent = error.message;
+    state.items = [];
+    state.pagination.page = 1;
     elements.resultsList.innerHTML = "";
     elements.resultsEmpty.hidden = false;
+    renderPagination(0, 0, 0);
   } finally {
     setResultsLoading(false);
   }
@@ -525,14 +675,16 @@ async function handleSearch(event) {
   try {
     const data = await fetchFromApi(params);
     const materials = normaliseMaterials(data);
-    state.items = materials;
-    renderResults(materials);
+    setResults(materials);
   } catch (error) {
     console.error(error);
     elements.resultsError.hidden = false;
     elements.resultsError.textContent = error.message;
+    state.items = [];
+    state.pagination.page = 1;
     elements.resultsList.innerHTML = "";
     elements.resultsEmpty.hidden = false;
+    renderPagination(0, 0, 0);
   } finally {
     setResultsLoading(false);
   }
@@ -540,6 +692,62 @@ async function handleSearch(event) {
 
 function handleRefresh() {
   loadShowcase(state.currentCategory || "movie");
+}
+
+function handlePaginationClick(event) {
+  if (!elements.paginationControls) return;
+  let node = event.target;
+  let button = null;
+
+  while (node && node !== elements.paginationControls) {
+    if (node.nodeType === 1 && node.matches && node.matches("button.page-button")) {
+      button = node;
+      break;
+    }
+    node = node.parentNode;
+  }
+
+  if (!button || button.disabled) return;
+  const { page: pageValue } = button.dataset;
+  if (!pageValue) return;
+  const parsed = Number.parseInt(pageValue, 10);
+  if (!Number.isFinite(parsed)) return;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil((Array.isArray(state.items) ? state.items.length : 0) / (state.pagination.perPage || PAGE_SIZE_OPTIONS[1]))
+  );
+  const nextPage = Math.min(Math.max(parsed, 1), totalPages);
+  if (nextPage === state.pagination.page) return;
+
+  state.pagination.page = nextPage;
+  renderResults();
+  scrollResultsIntoView();
+}
+
+function handlePageSizeChange(event) {
+  const select = event.target;
+  if (!select || typeof select.value !== "string") {
+    return;
+  }
+  const value = Number.parseInt(select.value, 10);
+  const fallback = PAGE_SIZE_OPTIONS[1];
+  const newSize = PAGE_SIZE_OPTIONS.includes(value) ? value : fallback;
+  state.pagination.perPage = newSize;
+  state.pagination.page = 1;
+  renderResults();
+  select.value = String(newSize);
+}
+
+function scrollResultsIntoView() {
+  if (!elements.resultsList || typeof elements.resultsList.scrollIntoView !== "function") {
+    return;
+  }
+  try {
+    elements.resultsList.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    elements.resultsList.scrollIntoView(true);
+  }
 }
 
 function handleSettingsOpen() {
@@ -608,6 +816,27 @@ function handleSettingsReset() {
   if (state.selectedDetails) {
     renderDetails(state.selectedDetails);
   }
+}
+
+function applyCurrentOriginToPlayerField() {
+  if (!elements.settingsPlayer) return;
+  const origin = typeof window !== "undefined" ? window.location.origin : null;
+  if (!origin || origin === "null") {
+    announce("Не удалось определить текущий домен. Укажите его вручную.");
+    return;
+  }
+
+  const candidate = `${origin.replace(/\/$/, "")}/`;
+  const normalised = normalisePlayerDomain(candidate);
+
+  if (!normalised) {
+    announce("Не удалось подставить домен автоматически. Укажите его вручную.");
+    return;
+  }
+
+  elements.settingsPlayer.value = normalised;
+  elements.settingsPlayer.focus();
+  announce(`Домен ${normalised} подставлен в поле.`);
 }
 
 function loadSettings() {
@@ -695,6 +924,19 @@ if (elements.refreshButton) {
   elements.refreshButton.addEventListener("click", handleRefresh);
 }
 
+if (elements.paginationControls) {
+  elements.paginationControls.addEventListener("click", handlePaginationClick);
+}
+
+if (elements.pageSizeSelect) {
+  const fallback = PAGE_SIZE_OPTIONS.includes(state.pagination.perPage)
+    ? state.pagination.perPage
+    : PAGE_SIZE_OPTIONS[1];
+  state.pagination.perPage = fallback;
+  elements.pageSizeSelect.value = String(fallback);
+  elements.pageSizeSelect.addEventListener("change", handlePageSizeChange);
+}
+
 if (elements.settingsButton) {
   elements.settingsButton.addEventListener("click", handleSettingsOpen);
 }
@@ -717,6 +959,10 @@ if (elements.settingsDialog) {
       handleSettingsClose();
     }
   });
+}
+
+if (elements.settingsUseOrigin) {
+  elements.settingsUseOrigin.addEventListener("click", applyCurrentOriginToPlayerField);
 }
 
 document.addEventListener("keydown", (event) => {

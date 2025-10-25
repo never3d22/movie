@@ -173,8 +173,99 @@ body {
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+.pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin: 0.5rem 0 0;
+}
+
+.pagination-bar__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.pagination-bar__left select {
+  padding: 0.45rem 2.25rem 0.45rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  background: rgba(24, 28, 36, 0.9);
+  color: var(--text);
+}
+
+.pagination-bar__left select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+.pagination-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pagination-summary {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.page-button {
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: rgba(24, 28, 36, 0.9);
+  color: var(--text);
+  padding: 0.4rem 0.75rem;
+  min-width: 2.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.page-button:hover {
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.page-button:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.page-button[aria-current="page"],
+.page-button[aria-current="page"]:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  cursor: default;
+}
+
+.page-button[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pagination-ellipsis {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0 0.25rem;
 }
 
 .card {
@@ -222,13 +313,13 @@ body {
 .card-body {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 0 1rem 1.2rem;
+  gap: 0.4rem;
+  padding: 0 0.85rem 1rem;
 }
 
 .card-title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -241,10 +332,10 @@ body {
 .card-description {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -494,6 +585,36 @@ body {
   outline: none;
 }
 
+.settings-field {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.settings-field input {
+  flex: 1 1 auto;
+}
+
+.settings-helper {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: rgba(24, 28, 36, 0.9);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.settings-helper:hover,
+.settings-helper:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+  outline: none;
+}
+
 .settings-hint {
   margin: 0;
   color: var(--text-muted);
@@ -568,6 +689,26 @@ body {
   }
 
   .settings-button {
+    width: 100%;
+  }
+
+  .pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .pagination-bar__left {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .pagination-bar__left select {
+    flex: 1 1 auto;
+  }
+
+  .pagination-bar__right {
+    justify-content: space-between;
     width: 100%;
   }
 }

@@ -41,6 +41,20 @@
         <button id="refresh-button" type="button" class="refresh">Обновить подборку</button>
       </div>
       <div id="results-list" class="card-grid" role="list" aria-live="polite"></div>
+      <div id="results-pagination" class="pagination-bar" hidden>
+        <div class="pagination-bar__left">
+          <label for="page-size-select">На странице:</label>
+          <select id="page-size-select">
+            <option value="12">12</option>
+            <option value="18" selected>18</option>
+            <option value="24">24</option>
+          </select>
+        </div>
+        <div class="pagination-bar__right">
+          <span id="pagination-summary" class="pagination-summary" aria-live="polite"></span>
+          <nav id="pagination-controls" class="pagination" aria-label="Навигация по страницам"></nav>
+        </div>
+      </div>
       <div id="results-empty" class="empty-state" hidden>
         <p>Ничего не найдено. Попробуйте изменить параметры поиска.</p>
       </div>
@@ -73,8 +87,20 @@
         <p class="settings-hint">Используется для запросов к api.apbugall.org. Укажите собственный токен при необходимости.</p>
 
         <label for="settings-player">Домен плеера</label>
-        <input id="settings-player" name="player" type="url" placeholder="https://video.yoursite.ru/" required>
-        <p class="settings-hint">Домен должен быть добавлен в настройках видеобалансера. Указывайте адрес с https:// и завершающим слэшем.</p>
+        <div class="settings-field">
+          <input
+            id="settings-player"
+            name="player"
+            type="text"
+            inputmode="url"
+            placeholder="https://video.yoursite.ru/"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          >
+          <button id="settings-use-origin" type="button" class="settings-helper">Текущий домен</button>
+        </div>
+        <p class="settings-hint">Домен должен быть добавлен в настройках видеобалансера. Указывайте адрес с протоколом и завершающим слэшем, например <code>https://video.yoursite.ru/</code> или для локальной разработки <code>http://localhost:3000/</code>.</p>
 
         <div class="settings-actions">
           <button id="settings-reset" type="button" class="ghost">Сбросить</button>
