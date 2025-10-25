@@ -1,6 +1,11 @@
 const API_BASE = "https://api.apbugall.org/";
-const PLAYER_BASE = "https://video.apbugall.org/";
-const API_TOKEN = "115f79b05ff195bc531a3878101ee6";
+const STORAGE_KEY = "cinemaFlowSettings";
+const DEFAULT_SETTINGS = {
+  apiToken: "115f79b05ff195bc531a3878101ee6",
+  playerDomain: "https://video.apbugall.org/",
+};
+
+const settings = loadSettings();
 
 const elements = {
   resultsList: document.getElementById("results-list"),
@@ -11,17 +16,26 @@ const elements = {
   refreshButton: document.getElementById("refresh-button"),
   searchForm: document.getElementById("search-form"),
   cardTemplate: document.getElementById("result-card-template"),
+  settingsButton: document.getElementById("settings-button"),
+  settingsDialog: document.getElementById("settings-dialog"),
+  settingsForm: document.getElementById("settings-form"),
+  settingsClose: document.getElementById("settings-close"),
+  settingsReset: document.getElementById("settings-reset"),
+  settingsToken: document.getElementById("settings-token"),
+  settingsPlayer: document.getElementById("settings-player"),
+  liveRegion: document.getElementById("live-region"),
 };
 
 const state = {
   currentCategory: "movie",
   items: [],
   selectedId: null,
+  selectedDetails: null,
 };
 
 function buildUrl(params) {
   const url = new URL(API_BASE);
-  url.searchParams.set("token", API_TOKEN);
+  url.searchParams.set("token", getApiToken());
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && `${value}`.trim() !== "") {
       url.searchParams.set(key, value);
@@ -133,8 +147,10 @@ async function handleCardClick(item) {
   try {
     const details = await fetchDetails(item);
     state.selectedId = buildMaterialKey(details);
+    state.selectedDetails = details;
     renderDetails(details);
   } catch (error) {
+    state.selectedDetails = null;
     elements.detailsContent.innerHTML = `
       <div class="detail-block">
         <h4>Не удалось загрузить информацию</h4>
@@ -277,13 +293,17 @@ function renderDetails(item) {
 
   const iframeHint = document.createElement("p");
   iframeHint.className = "card-meta";
-  iframeHint.textContent = "Плеер подключается напрямую к video.apbugall.org по ID фильма.";
+  const playerHost = safePlayerHost();
+  iframeHint.textContent = `Плеер подключается к ${playerHost}. Убедитесь, что домен добавлен в настройки видеобалансера.`;
 
   const mountIframe = (autoplay = false) => {
+    const playerBaseConfigured = Boolean(getPlayerBase());
     const src = buildPlayerSrc(item, { translationId: selectedTranslation, autoplay });
     if (!src) {
       overlayButton.disabled = true;
-      overlayButton.textContent = "Недостаточно данных для подключения плеера";
+      overlayButton.textContent = playerBaseConfigured
+        ? "Недостаточно данных для подключения плеера"
+        : "Укажите домен плеера в настройках";
       return;
     }
 
@@ -292,11 +312,14 @@ function renderDetails(item) {
   };
 
   const updatePlayerSource = () => {
+    const playerBaseConfigured = Boolean(getPlayerBase());
     const src = buildPlayerSrc(item, { translationId: selectedTranslation, autoplay: Boolean(iframeElement) });
     if (!src) {
       if (!iframeElement) {
         overlayButton.disabled = true;
-        overlayButton.textContent = "Недостаточно данных для подключения плеера";
+        overlayButton.textContent = playerBaseConfigured
+          ? "Недостаточно данных для подключения плеера"
+          : "Укажите домен плеера в настройках";
       }
       return;
     }
@@ -399,8 +422,13 @@ function buildPlayerSrc(item, { translationId, autoplay } = {}) {
     return null;
   }
 
-  const url = new URL(PLAYER_BASE);
-  url.searchParams.set("token", API_TOKEN);
+  const playerBase = getPlayerBase();
+  if (!playerBase) {
+    return null;
+  }
+
+  const url = new URL(playerBase);
+  url.searchParams.set("token", getApiToken());
 
   let hasIdentifier = false;
 
@@ -514,9 +542,189 @@ function handleRefresh() {
   loadShowcase(state.currentCategory || "movie");
 }
 
+function handleSettingsOpen() {
+  if (!elements.settingsDialog || !elements.settingsToken) return;
+  populateSettingsForm();
+  elements.settingsDialog.hidden = false;
+  elements.settingsDialog.classList.add("is-open");
+  if (elements.settingsButton) {
+    elements.settingsButton.setAttribute("aria-expanded", "true");
+  }
+  elements.settingsToken.focus();
+}
+
+function handleSettingsClose() {
+  if (!elements.settingsDialog) return;
+  elements.settingsDialog.classList.remove("is-open");
+  elements.settingsDialog.hidden = true;
+  if (elements.settingsButton) {
+    elements.settingsButton.setAttribute("aria-expanded", "false");
+    elements.settingsButton.focus();
+  }
+}
+
+function populateSettingsForm() {
+  if (!elements.settingsToken || !elements.settingsPlayer) return;
+  elements.settingsToken.value = settings.apiToken || "";
+  elements.settingsPlayer.value = settings.playerDomain || "";
+}
+
+function handleSettingsSubmit(event) {
+  event.preventDefault();
+  if (elements.settingsForm && !elements.settingsForm.checkValidity()) {
+    elements.settingsForm.reportValidity();
+    return;
+  }
+  const formData = new FormData(elements.settingsForm);
+  const rawToken = formData.get("token");
+  const apiToken = typeof rawToken === "string" ? rawToken.trim() : "";
+  const rawPlayer = formData.get("player");
+  const playerDomain = normalisePlayerDomain(rawPlayer);
+
+  if (!apiToken || !playerDomain) {
+    announce("Укажите токен и корректный домен плеера.");
+    return;
+  }
+
+  settings.apiToken = apiToken;
+  settings.playerDomain = playerDomain;
+  persistSettings(settings);
+  handleSettingsClose();
+  announce("Настройки сохранены.");
+  handleRefresh();
+  if (state.selectedDetails) {
+    renderDetails(state.selectedDetails);
+  }
+}
+
+function handleSettingsReset() {
+  if (!elements.settingsForm) return;
+  settings.apiToken = DEFAULT_SETTINGS.apiToken;
+  settings.playerDomain = DEFAULT_SETTINGS.playerDomain;
+  persistSettings(settings);
+  populateSettingsForm();
+  announce("Настройки сброшены к значениям по умолчанию.");
+  handleRefresh();
+  if (state.selectedDetails) {
+    renderDetails(state.selectedDetails);
+  }
+}
+
+function loadSettings() {
+  if (typeof localStorage === "undefined") {
+    return { ...DEFAULT_SETTINGS };
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_SETTINGS };
+    const parsed = JSON.parse(raw);
+    return {
+      apiToken:
+        typeof parsed.apiToken === "string" && parsed.apiToken.trim()
+          ? parsed.apiToken.trim()
+          : DEFAULT_SETTINGS.apiToken,
+      playerDomain: normalisePlayerDomain(parsed.playerDomain) || DEFAULT_SETTINGS.playerDomain,
+    };
+  } catch (error) {
+    console.warn("Не удалось загрузить настройки, используются значения по умолчанию", error);
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+function persistSettings(value) {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+}
+
+function getApiToken() {
+  return settings.apiToken || DEFAULT_SETTINGS.apiToken;
+}
+
+function getPlayerBase() {
+  return normalisePlayerDomain(settings.playerDomain);
+}
+
+function normalisePlayerDomain(value) {
+  if (!value) return null;
+  const trimmed = value.toString().trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (!url.protocol.startsWith("http")) {
+      return null;
+    }
+    if (!url.pathname.endsWith("/")) {
+      url.pathname = `${url.pathname.replace(/\/$/, "")}/`;
+    }
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch (error) {
+    return null;
+  }
+}
+
+function safePlayerHost() {
+  const base = getPlayerBase();
+  if (!base) return "вашему домену";
+  try {
+    return new URL(base).host;
+  } catch (error) {
+    return base;
+  }
+}
+
+function announce(message) {
+  if (!elements.liveRegion) return;
+  elements.liveRegion.textContent = "";
+  elements.liveRegion.textContent = message;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   loadShowcase(state.currentCategory);
+  populateSettingsForm();
 });
 
-elements.searchForm.addEventListener("submit", handleSearch);
-elements.refreshButton.addEventListener("click", handleRefresh);
+if (elements.searchForm) {
+  elements.searchForm.addEventListener("submit", handleSearch);
+}
+
+if (elements.refreshButton) {
+  elements.refreshButton.addEventListener("click", handleRefresh);
+}
+
+if (elements.settingsButton) {
+  elements.settingsButton.addEventListener("click", handleSettingsOpen);
+}
+
+if (elements.settingsClose) {
+  elements.settingsClose.addEventListener("click", handleSettingsClose);
+}
+
+if (elements.settingsForm) {
+  elements.settingsForm.addEventListener("submit", handleSettingsSubmit);
+}
+
+if (elements.settingsReset) {
+  elements.settingsReset.addEventListener("click", handleSettingsReset);
+}
+
+if (elements.settingsDialog) {
+  elements.settingsDialog.addEventListener("click", (event) => {
+    if (event.target === elements.settingsDialog) {
+      handleSettingsClose();
+    }
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (
+    event.key === "Escape" &&
+    elements.settingsDialog &&
+    elements.settingsDialog.classList.contains("is-open")
+  ) {
+    handleSettingsClose();
+  }
+});

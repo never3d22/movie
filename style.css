@@ -71,6 +71,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  flex: 1 1 520px;
 }
 
 .search-form input,
@@ -104,6 +105,25 @@ body {
 .search-form button:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 30px -16px var(--accent);
+}
+
+.settings-button {
+  align-self: flex-start;
+  padding: 0.65rem 1.1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: rgba(24, 28, 36, 0.9);
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.settings-button:hover,
+.settings-button:focus-visible {
+  border-color: var(--accent);
+  color: #ffffff;
+  outline: none;
 }
 
 .main-layout {
@@ -396,6 +416,130 @@ body {
   border: 0;
 }
 
+.settings-dialog {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 6, 10, 0.6);
+  backdrop-filter: blur(6px);
+  padding: 1.5rem;
+  z-index: 20;
+}
+
+.settings-dialog[hidden] {
+  display: none;
+}
+
+.settings-dialog__content {
+  width: min(420px, 100%);
+  background: var(--bg-panel);
+  border-radius: 1.25rem;
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  box-shadow: 0 25px 60px -35px var(--shadow);
+  display: grid;
+  gap: 1.25rem;
+}
+
+.settings-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-dialog__header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.icon-button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.settings-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.settings-form label {
+  font-weight: 600;
+}
+
+.settings-form input {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: rgba(24, 28, 36, 0.9);
+  color: var(--text);
+}
+
+.settings-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+.settings-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-actions .spacer {
+  flex: 1 1 auto;
+}
+
+.settings-actions button {
+  padding: 0.65rem 1.2rem;
+  border-radius: 0.75rem;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-actions button[type="submit"] {
+  background: var(--accent);
+  color: white;
+}
+
+.settings-actions button[type="submit"]:hover {
+  filter: brightness(1.05);
+}
+
+.settings-actions .ghost {
+  background: rgba(24, 28, 36, 0.9);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.settings-actions .ghost:hover,
+.settings-actions .ghost:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
 @media (max-width: 960px) {
   .main-layout {
     grid-template-columns: 1fr;
@@ -420,6 +564,10 @@ body {
   .search-form select,
   .search-form button {
     flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .settings-button {
     width: 100%;
   }
 }
