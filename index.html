@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CinemaFlow — онлайн кинотеатр</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="app-header">
+    <div class="container header-content">
+      <div class="branding">
+        <span class="logo">CinemaFlow</span>
+        <span class="tagline">Стриминг фильмов и сериалов</span>
+      </div>
+      <form id="search-form" class="search-form" autocomplete="off">
+        <label class="visually-hidden" for="search-input">Поиск фильма</label>
+        <input id="search-input" name="query" type="search" placeholder="Название фильма или сериала" required>
+        <input id="year-input" name="year" type="number" placeholder="Год" min="1900" max="2100">
+        <select id="category-select" name="list">
+          <option value="">Любая категория</option>
+          <option value="movie">Фильмы</option>
+          <option value="serial">Сериалы</option>
+          <option value="anime">Аниме</option>
+          <option value="anime-serial">Аниме-сериалы</option>
+          <option value="tv-show">TV-шоу</option>
+        </select>
+        <button type="submit">Искать</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="container main-layout">
+    <section class="results-panel" aria-labelledby="results-title">
+      <div class="panel-header">
+        <h2 id="results-title">Каталог</h2>
+        <button id="refresh-button" type="button" class="refresh">Обновить подборку</button>
+      </div>
+      <div id="results-list" class="card-grid" role="list" aria-live="polite"></div>
+      <div id="results-empty" class="empty-state" hidden>
+        <p>Ничего не найдено. Попробуйте изменить параметры поиска.</p>
+      </div>
+      <div id="results-loading" class="loader" hidden aria-live="assertive" aria-busy="true">Загрузка…</div>
+      <div id="results-error" class="error-banner" hidden role="alert"></div>
+    </section>
+
+    <section class="details-panel" aria-labelledby="details-title">
+      <div class="panel-header">
+        <h2 id="details-title">Информация</h2>
+      </div>
+      <article id="details-content" class="details" aria-live="polite">
+        <div class="placeholder">
+          <h3>Выберите материал</h3>
+          <p>Нажмите на карточку в каталоге, чтобы увидеть подробности и протестировать плеер.</p>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <template id="result-card-template">
+    <article class="card" role="listitem">
+      <button class="card-button" type="button">
+        <div class="poster-wrapper">
+          <img class="poster" alt="">
+        </div>
+        <div class="card-body">
+          <h3 class="card-title"></h3>
+          <p class="card-meta"></p>
+          <p class="card-description"></p>
+        </div>
+      </button>
+    </article>
+  </template>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
