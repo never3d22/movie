@@ -1,4 +1,5 @@
 const API_BASE = "https://api.apbugall.org/";
+const PLAYER_BASE = "https://video.apbugall.org/";
 const API_TOKEN = "115f79b05ff195bc531a3878101ee6";
 
 const elements = {
@@ -244,6 +245,7 @@ function renderDetails(item) {
 
   const translations = getTranslationOptions(item);
   let selectedTranslation = Object.keys(translations)[0] || null;
+  let iframeElement = null;
 
   if (selectedTranslation) {
     const selectLabel = document.createElement("label");
@@ -261,25 +263,59 @@ function renderDetails(item) {
     });
 
     select.addEventListener("change", (event) => {
-      selectedTranslation = event.target.value;
-      const newSrc = resolveIframeSrc(item, translations, selectedTranslation);
-      iframeElement.src = newSrc;
+      selectedTranslation = event.target.value || null;
+      updatePlayerSource();
     });
 
     iframeContainer.append(selectLabel, select);
   }
 
-  const iframeElement = document.createElement("iframe");
-  iframeElement.title = name ? `Плеер: ${name}` : "Плеер";
-  iframeElement.allowFullscreen = true;
-  iframeElement.referrerPolicy = "no-referrer";
-  iframeElement.src = resolveIframeSrc(item, translations, selectedTranslation);
+  const overlayButton = document.createElement("button");
+  overlayButton.type = "button";
+  overlayButton.className = "player-overlay";
+  overlayButton.innerHTML = "<span>Нажмите, чтобы загрузить плеер</span>";
 
   const iframeHint = document.createElement("p");
   iframeHint.className = "card-meta";
-  iframeHint.textContent = "Если плеер не загружается, проверьте доступность iframe у поставщика.";
+  iframeHint.textContent = "Плеер подключается напрямую к video.apbugall.org по ID фильма.";
 
-  iframeBlock.append(iframeTitle, iframeContainer, iframeElement, iframeHint);
+  const mountIframe = (autoplay = false) => {
+    const src = buildPlayerSrc(item, { translationId: selectedTranslation, autoplay });
+    if (!src) {
+      overlayButton.disabled = true;
+      overlayButton.textContent = "Недостаточно данных для подключения плеера";
+      return;
+    }
+
+    iframeElement = createPlayerIframe(src, name);
+    overlayButton.replaceWith(iframeElement);
+  };
+
+  const updatePlayerSource = () => {
+    const src = buildPlayerSrc(item, { translationId: selectedTranslation, autoplay: Boolean(iframeElement) });
+    if (!src) {
+      if (!iframeElement) {
+        overlayButton.disabled = true;
+        overlayButton.textContent = "Недостаточно данных для подключения плеера";
+      }
+      return;
+    }
+
+    overlayButton.disabled = false;
+    overlayButton.innerHTML = "<span>Нажмите, чтобы загрузить плеер</span>";
+
+    if (iframeElement) {
+      iframeElement.src = src;
+    }
+  };
+
+  overlayButton.addEventListener("click", () => {
+    mountIframe(true);
+  });
+
+  iframeBlock.append(iframeTitle, iframeContainer, overlayButton, iframeHint);
+
+  updatePlayerSource();
 
   fragment.append(header, descriptionBlock, listsBlock, iframeBlock);
   elements.detailsContent.innerHTML = "";
@@ -289,13 +325,6 @@ function renderDetails(item) {
 function buildTranslationLabel(option) {
   const parts = [option.name, option.quality && `(${option.quality})`].filter(Boolean);
   return parts.join(" ");
-}
-
-function resolveIframeSrc(item, translations, translationId) {
-  const preferred = translationId && translations[translationId] && safeIframeUrl(translations[translationId].iframe);
-  if (preferred) return preferred;
-  const fallback = safeIframeUrl(item.iframe);
-  return fallback || "https://www.youtube.com/embed/dQw4w9WgXcQ";
 }
 
 function safeIframeUrl(url) {
@@ -363,6 +392,75 @@ function getTranslationOptions(item) {
     }
     return acc;
   }, {});
+}
+
+function buildPlayerSrc(item, { translationId, autoplay } = {}) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  const url = new URL(PLAYER_BASE);
+  url.searchParams.set("token", API_TOKEN);
+
+  let hasIdentifier = false;
+
+  if (item.id_kp) {
+    url.searchParams.set("kp", item.id_kp);
+    hasIdentifier = true;
+  } else if (item.id_imdb) {
+    url.searchParams.set("imdb", item.id_imdb);
+    hasIdentifier = true;
+  } else if (item.id_world_art) {
+    url.searchParams.set("world_art", item.id_world_art);
+    hasIdentifier = true;
+  } else if (item.name) {
+    url.searchParams.set("name", item.name);
+    if (item.year) {
+      url.searchParams.set("year", item.year);
+    }
+    hasIdentifier = true;
+  }
+
+  if (translationId) {
+    url.searchParams.set("translation", translationId);
+  }
+
+  if (autoplay) {
+    url.searchParams.set("autoplay", "1");
+  }
+
+  if (hasIdentifier) {
+    return url.toString();
+  }
+
+  const fallback = safeIframeUrl(item.iframe);
+  if (!fallback) {
+    return null;
+  }
+
+  try {
+    const fallbackUrl = new URL(fallback);
+    if (translationId) {
+      fallbackUrl.searchParams.set("translation", translationId);
+    }
+    if (autoplay) {
+      fallbackUrl.searchParams.set("autoplay", "1");
+    }
+    return fallbackUrl.toString();
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function createPlayerIframe(src, name) {
+  const iframe = document.createElement("iframe");
+  iframe.title = name ? `Плеер: ${name}` : "Плеер";
+  iframe.allowFullscreen = true;
+  iframe.referrerPolicy = "no-referrer-when-downgrade";
+  iframe.scrolling = "no";
+  iframe.loading = "lazy";
+  iframe.src = src;
+  return iframe;
 }
 
 async function loadShowcase(category = "movie") {
